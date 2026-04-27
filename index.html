@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeetIQ — Business Meeting Preparation Agent</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:           #05091a;
+      --surface:      #0b1228;
+      --glass:        rgba(255,255,255,0.04);
+      --glass-b:      rgba(255,255,255,0.08);
+      --glass-hover:  rgba(255,255,255,0.07);
+      --blue:         #3b82f6;
+      --blue-glow:    #60a5fa;
+      --blue-dim:     #1d4ed8;
+      --cyan:         #06b6d4;
+      --violet:       #7c3aed;
+      --violet-light: #a78bfa;
+      --green:        #10b981;
+      --yellow:       #f59e0b;
+      --red:          #f43f5e;
+      --txt:          #f0f4ff;
+      --txt-m:        #94a3b8;
+      --txt-f:        #475569;
+      --r:            16px;
+      --r-sm:         10px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background ────────────────────────────────────────────── */
+    .bg-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      overflow: hidden; pointer-events: none;
+    }
+    .bg-canvas::before {
+      content: ''; position: absolute;
+      width: 900px; height: 900px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,.13) 0%, transparent 70%);
+      top: -300px; left: -200px;
+      animation: drift1 18s ease-in-out infinite alternate;
+    }
+    .bg-canvas::after {
+      content: ''; position: absolute;
+      width: 700px; height: 700px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(6,182,212,.08) 0%, transparent 70%);
+      bottom: -200px; right: -100px;
+      animation: drift2 22s ease-in-out infinite alternate;
+    }
+    .bg-orb3 {
+      position: absolute; width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,.09) 0%, transparent 70%);
+      top: 50%; left: 55%; transform: translate(-50%,-50%);
+      animation: drift3 25s ease-in-out infinite alternate;
+    }
+    @keyframes drift1 { to { transform: translate(80px,60px) scale(1.1); } }
+    @keyframes drift2 { to { transform: translate(-60px,-80px) scale(1.15); } }
+    @keyframes drift3 { to { transform: translate(-45%,-55%) scale(.9); } }
+    .bg-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
+    .wrapper {
+      position: relative; z-index: 1;
+      max-width: 880px; margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    .header { text-align: center; margin-bottom: 52px; animation: fadeDown .7s ease both; }
+    .header-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(59,130,246,.1);
+      border: 1px solid rgba(59,130,246,.25);
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 11px; font-weight: 500; color: var(--blue-glow);
+      letter-spacing: .08em; text-transform: uppercase; margin-bottom: 20px;
+    }
+    .header-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--blue-glow);
+      animation: pulse-dot 2s ease infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.4; transform:scale(.7); }
+    }
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2rem,5vw,3.2rem);
+      font-weight: 800; line-height: 1.1; letter-spacing: -.02em;
+      background: linear-gradient(135deg,#f0f4ff 20%,#60a5fa 60%,#06b6d4 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 14px;
+    }
+    .header-sub {
+      color: var(--txt-m); font-size: 15px; font-weight: 300;
+      max-width: 540px; margin: 0 auto; line-height: 1.7;
+    }
+
+    /* ── Agent pipeline pills ────────────────────────────────────────────── */
+    .pipeline-pills {
+      display: flex; align-items: center; justify-content: center;
+      flex-wrap: wrap; gap: 6px; margin-top: 22px;
+    }
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 999px; padding: 4px 12px;
+      font-size: 11px; color: var(--txt-m);
+    }
+    .pill-arrow { color: var(--txt-f); font-size: 12px; }
+
+    /* ── Glass card ─────────────────────────────────────────────────────── */
+    .glass-card {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: var(--r); backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 36px; margin-bottom: 18px;
+      animation: fadeUp .6s ease both;
+    }
+    .glass-card:nth-child(2) { animation-delay: .1s; }
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
+
+    .section-label {
+      font-family: 'Syne', sans-serif; font-size: 11px;
+      font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--blue-glow); margin-bottom: 22px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(90deg, rgba(59,130,246,.3), transparent);
+    }
+
+    /* ── Form ───────────────────────────────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .form-grid .span-2 { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 7px; }
+    label { font-size: 12px; font-weight: 500; color: var(--txt-m); letter-spacing: .04em; }
+    input, textarea, select {
+      background: rgba(255,255,255,.03); border: 1px solid var(--glass-b);
+      border-radius: var(--r-sm); color: var(--txt);
+      font-family: 'DM Sans', sans-serif; font-size: 14px;
+      padding: 12px 16px; transition: border-color .2s, box-shadow .2s, background .2s;
+      outline: none; width: 100%;
+    }
+    input::placeholder, textarea::placeholder { color: var(--txt-f); }
+    input:focus, textarea:focus {
+      border-color: rgba(59,130,246,.5);
+      background: rgba(59,130,246,.04);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+    }
+    textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+
+    /* duration slider */
+    .duration-row { display: flex; align-items: center; gap: 14px; }
+    .duration-row input[type="range"] {
+      flex: 1; -webkit-appearance: none; height: 4px;
+      background: linear-gradient(90deg, var(--blue) var(--pct,33%), rgba(255,255,255,.1) var(--pct,33%));
+      border-radius: 99px; padding: 0; border: none; box-shadow: none; cursor: pointer;
+    }
+    .duration-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: white; box-shadow: 0 0 8px rgba(59,130,246,.6); transition: transform .15s;
+    }
+    .duration-row input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    .duration-badge {
+      min-width: 64px; text-align: center;
+      background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25);
+      border-radius: 8px; padding: 8px 10px;
+      font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+      color: var(--blue-glow); line-height: 1;
+    }
+
+    /* submit button */
+    .btn-submit {
+      width: 100%; padding: 16px 24px;
+      background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dim) 100%);
+      border: none; border-radius: var(--r-sm); color: white;
+      font-family: 'Syne', sans-serif; font-size: 15px;
+      font-weight: 700; letter-spacing: .04em; cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: transform .2s, box-shadow .2s; margin-top: 10px;
+    }
+    .btn-submit::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, transparent 60%);
+      opacity: 0; transition: opacity .2s;
+    }
+    .btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(59,130,246,.4); }
+    .btn-submit:hover:not(:disabled)::before { opacity: 1; }
+    .btn-submit:active:not(:disabled) { transform: translateY(0); }
+    .btn-submit:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* error toast */
+    #error-toast {
+      display: none; background: rgba(244,63,94,.1);
+      border: 1px solid rgba(244,63,94,.3); border-radius: var(--r-sm);
+      padding: 14px 18px; color: #fda4af; font-size: 14px;
+      margin-top: 16px; animation: fadeUp .3s ease both;
+    }
+    #error-toast.active { display: flex; align-items: flex-start; gap: 10px; }
+
+    /* ── Loader ─────────────────────────────────────────────────────────── */
+    #loader { display: none; }
+    #loader.active { display: block; }
+    .loader-card {
+      background: var(--glass); border: 1px solid rgba(59,130,246,.2);
+      border-radius: var(--r); backdrop-filter: blur(20px);
+      padding: 48px 36px; text-align: center; animation: fadeUp .4s ease both;
+    }
+    .orbit-wrap { position: relative; width: 100px; height: 100px; margin: 0 auto 32px; }
+    .orbit-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; }
+    .orbit-ring-1 { border-top-color: var(--blue); border-right-color: rgba(59,130,246,.2); animation: spin 1.4s linear infinite; }
+    .orbit-ring-2 { inset: 12px; border-top-color: var(--cyan); border-left-color: rgba(6,182,212,.2); animation: spin 2s linear infinite reverse; }
+    .orbit-ring-3 { inset: 26px; border-bottom-color: rgba(255,255,255,.4); border-right-color: rgba(255,255,255,.1); animation: spin 1.8s linear infinite; }
+    .orbit-center {
+      position: absolute; inset: 38px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,.5), rgba(59,130,246,.1));
+      animation: breathe 2s ease-in-out infinite;
+    }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes breathe { 0%,100% { transform:scale(1); opacity:.8; } 50% { transform:scale(1.2); opacity:1; } }
+
+    .loader-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; margin-bottom:8px; }
+    .loader-sub   { color: var(--txt-m); font-size:14px; margin-bottom:8px; min-height:20px; }
+    /* ── Live elapsed timer in loader ───────────────────────────────────── */
+    .loader-timer {
+      font-family: 'Syne', sans-serif; font-size: 12px;
+      color: var(--txt-f); margin-bottom: 28px;
+      letter-spacing: .06em;
+    }
+    .loader-timer span { color: var(--blue-glow); font-weight: 700; }
+
+    .agent-steps { display:flex; flex-direction:column; gap:8px; text-align:left; max-width:420px; margin:0 auto; }
+    .agent-step {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; border-radius: 10px;
+      background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+      font-size: 13px; color: var(--txt-f); transition: all .4s ease;
+    }
+    .agent-step.active { color:var(--txt); background:rgba(59,130,246,.08); border-color:rgba(59,130,246,.2); }
+    .agent-step.done   { color:var(--green); background:rgba(16,185,129,.06); border-color:rgba(16,185,129,.15); }
+    .step-icon {
+      width:22px; height:22px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:11px; flex-shrink:0;
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+    }
+    .agent-step.active .step-icon { background:rgba(59,130,246,.2); border-color:var(--blue); animation:pulse-icon 1.5s ease infinite; }
+    .agent-step.done   .step-icon { background:rgba(16,185,129,.15); border-color:var(--green); }
+    @keyframes pulse-icon { 0%,100% { box-shadow:0 0 0 0 rgba(59,130,246,.4); } 50% { box-shadow:0 0 0 6px rgba(59,130,246,0); } }
+
+    /* ── Result section ─────────────────────────────────────────────────── */
+    #result-section { display:none; }
+    #result-section.active { display:block; animation:fadeUp .6s ease both; }
+
+    .result-header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:24px; flex-wrap:wrap; gap:12px;
+    }
+    .result-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+    .result-title span { color:var(--blue-glow); }
+
+    /* elapsed badge in result header */
+    .elapsed-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.2);
+      border-radius: 999px; padding: 4px 12px;
+      font-size: 11px; color: #34d399; font-family: 'Syne', sans-serif;
+      font-weight: 700; letter-spacing: .06em;
+    }
+
+    .result-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn-reset {
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+      border-radius:8px; color:var(--txt-m); font-family:'DM Sans',sans-serif;
+      font-size:13px; padding:8px 16px; cursor:pointer; transition:all .2s;
+    }
+    .btn-reset:hover { background:rgba(255,255,255,.1); color:var(--txt); }
+    .btn-download {
+      background:linear-gradient(135deg,#10b981,#059669); border:none;
+      border-radius:8px; color:white; font-family:'Syne',sans-serif;
+      font-size:13px; font-weight:700; padding:8px 18px;
+      cursor:pointer; transition:transform .2s, box-shadow .2s; letter-spacing:.03em;
+    }
+    .btn-download:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 6px 20px rgba(16,185,129,.35); }
+    .btn-download:disabled { opacity:.55; cursor:not-allowed; }
+
+    /* ── Meta cards (Decision + Memory) ─────────────────────────────────── */
+    .meta-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+    .meta-card {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: var(--r-sm); padding: 20px 22px;
+      animation: fadeUp .5s ease both;
+    }
+    .meta-card-title {
+      font-family:'Syne',sans-serif; font-size:10px; font-weight:700;
+      letter-spacing:.12em; text-transform:uppercase;
+      margin-bottom:14px; display:flex; align-items:center; gap:8px;
+    }
+    .meta-card-title.blue   { color:var(--blue-glow); }
+    .meta-card-title.violet { color:var(--violet-light); }
+    .meta-card-title::after { content:''; flex:1; height:1px; background:currentColor; opacity:.2; }
+
+    .decision-rows { display:flex; flex-direction:column; gap:8px; }
+    .decision-row  { display:flex; align-items:center; justify-content:space-between; font-size:13px; }
+    .decision-row-label { color:var(--txt-m); }
+    .decision-badge {
+      font-family:'Syne',sans-serif; font-size:11px; font-weight:700;
+      letter-spacing:.06em; padding:3px 10px; border-radius:999px;
+    }
+    .badge-yes    { background:rgba(16,185,129,.15); color:#34d399; border:1px solid rgba(16,185,129,.3); }
+    .badge-no     { background:rgba(100,116,139,.12); color:var(--txt-f); border:1px solid rgba(100,116,139,.2); }
+    .badge-purple { background:rgba(124,58,237,.15); color:var(--violet-light); border:1px solid rgba(124,58,237,.3); }
+    .badge-yellow { background:rgba(245,158,11,.12); color:#fcd34d; border:1px solid rgba(245,158,11,.25); }
+    .badge-cyan   { background:rgba(6,182,212,.12);  color:#67e8f9; border:1px solid rgba(6,182,212,.25); }
+
+    .reasoning-text {
+      margin-top:12px; font-size:12px; color:var(--txt-m);
+      line-height:1.6; border-top:1px solid rgba(255,255,255,.06); padding-top:10px;
+      font-style:italic;
+    }
+
+    .memory-indicator { display:flex; align-items:center; gap:12px; }
+    .memory-icon {
+      width:40px; height:40px; border-radius:10px;
+      display:flex; align-items:center; justify-content:center; font-size:20px;
+      flex-shrink:0;
+    }
+    .memory-icon.active-mem   { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.25); }
+    .memory-icon.inactive-mem { background:rgba(100,116,139,.1); border:1px solid rgba(100,116,139,.2); }
+    .memory-status { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; }
+    .memory-status.yes { color:var(--green); }
+    .memory-status.no  { color:var(--txt-f); }
+    .memory-sub { font-size:12px; color:var(--txt-m); margin-top:3px; line-height:1.5; }
+
+    /* ── Main brief body ─────────────────────────────────────────────────── */
+    .result-body { color:var(--txt); line-height:1.75; font-size:15px; }
+    .result-body h1 {
+      font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; color:#f0f4ff;
+      margin:28px 0 12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,.08);
+    }
+    .result-body h2 { font-family:'Syne',sans-serif; font-size:1.15rem; font-weight:700; color:var(--blue-glow); margin:24px 0 10px; }
+    .result-body h3 { font-family:'Syne',sans-serif; font-size:1rem; font-weight:600; color:var(--cyan); margin:18px 0 8px; }
+    .result-body p  { margin-bottom:14px; }
+    .result-body ul, .result-body ol { padding-left:22px; margin-bottom:14px; }
+    .result-body li { margin-bottom:6px; }
+    .result-body strong { color:#e2e8f0; }
+    .result-body em     { color:var(--txt-m); }
+    .result-body code   { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:5px; padding:2px 7px; font-size:.88em; color:var(--cyan); }
+    .result-body blockquote { border-left:3px solid var(--blue); padding:10px 16px; background:rgba(59,130,246,.06); border-radius:0 8px 8px 0; margin:16px 0; color:var(--txt-m); }
+    .result-body hr { border:none; border-top:1px solid rgba(255,255,255,.08); margin:24px 0; }
+    /* make links in brief visible and clickable */
+    .result-body a { color: var(--blue-glow); text-decoration: underline; word-break: break-all; }
+    .result-body a:hover { color: var(--cyan); }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       SEARCH LINKS PANEL  (new)
+    ══════════════════════════════════════════════════════════════════════ */
+    .search-panel {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: var(--r); backdrop-filter: blur(20px);
+      padding: 28px 32px; margin-bottom: 18px;
+      animation: fadeUp .7s ease .15s both;
+    }
+    .search-row {
+      display: flex; gap: 12px; align-items: flex-end;
+    }
+    .search-row .field { flex: 1; }
+    .btn-search {
+      padding: 12px 22px; white-space: nowrap;
+      background: linear-gradient(135deg, var(--cyan), #0891b2);
+      border: none; border-radius: var(--r-sm); color: #0f172a;
+      font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: transform .2s, box-shadow .2s;
+      letter-spacing: .04em; flex-shrink: 0;
+    }
+    .btn-search:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(6,182,212,.35); }
+    .btn-search:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* search results output */
+    #search-output { display: none; margin-top: 20px; }
+    #search-output.active { display: block; animation: fadeUp .4s ease both; }
+
+    .search-result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+    }
+    .search-result-title {
+      font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .search-elapsed {
+      font-size: 11px; color: var(--txt-f);
+      font-family: 'Syne', sans-serif; letter-spacing: .06em;
+    }
+    .search-elapsed span { color: var(--cyan); font-weight: 700; }
+
+    .search-body {
+      background: rgba(6,182,212,.04); border: 1px solid rgba(6,182,212,.15);
+      border-radius: var(--r-sm); padding: 20px 22px;
+      font-size: 14px; line-height: 1.75; color: var(--txt);
+    }
+    /* links inside search results */
+    .search-body a {
+      color: var(--blue-glow); text-decoration: underline;
+      word-break: break-all;
+    }
+    .search-body a:hover { color: var(--cyan); }
+    .search-body h1,.search-body h2,.search-body h3 {
+      font-family: 'Syne', sans-serif; color: var(--blue-glow);
+      margin: 14px 0 8px; font-size: 1rem;
+    }
+    .search-body ul,.search-body ol { padding-left: 20px; margin-bottom: 12px; }
+    .search-body li { margin-bottom: 8px; }
+    .search-body strong { color: #e2e8f0; }
+
+    /* search error */
+    #search-error {
+      display: none; background: rgba(244,63,94,.08);
+      border: 1px solid rgba(244,63,94,.25); border-radius: var(--r-sm);
+      padding: 12px 16px; color: #fda4af; font-size: 13px;
+      margin-top: 14px; gap: 8px;
+    }
+    #search-error.active { display: flex; align-items: center; }
+
+    /* ── Footer ─────────────────────────────────────────────────────────── */
+    footer { text-align:center; padding-top:48px; color:var(--txt-f); font-size:12px; }
+    footer span { color:var(--txt-m); }
+
+    /* ── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width:640px) {
+      .form-grid  { grid-template-columns:1fr; }
+      .form-grid .span-2 { grid-column:1; }
+      .glass-card { padding:22px 18px; }
+      .meta-row   { grid-template-columns:1fr; }
+      .pipeline-pills { gap:4px; }
+      .search-row { flex-direction: column; }
+      .btn-search { width: 100%; }
+    }
+
+    /* ── Print / PDF ────────────────────────────────────────────────────── */
+    @media print {
+      body { background:white !important; }
+      .bg-canvas, .wrapper > header, #form-section, .result-header,
+      .meta-row, footer, #loader, .search-panel { display:none !important; }
+      .wrapper { padding:0 !important; }
+      #result-section { display:block !important; }
+      .glass-card { background:white !important; border:none !important; box-shadow:none !important; padding:0 !important; }
+      #print-area, #print-area * { visibility:visible !important; color:black !important; background:white !important; -webkit-text-fill-color:black !important; font-family:'Times New Roman',serif !important; text-shadow:none !important; }
+      #print-area { font-size:12pt; line-height:1.6; }
+      #print-area h1 { font-size:22pt; border-bottom:2px solid black; padding-bottom:8px; margin-bottom:15px; }
+      #print-area h2 { font-size:16pt; margin-top:20px; }
+      #print-area h3 { font-size:13pt; margin-top:15px; }
+      #print-area p, #print-area li { margin-bottom:10px; }
+      @page { margin:20mm; size:A4; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-canvas">
+  <div class="bg-grid"></div>
+  <div class="bg-orb3"></div>
+</div>
+
+<div class="wrapper">
+
+  <!-- ── Header ────────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-badge"><span class="dot"></span> MeetIQ Intelligence</div>
+    <h1>MeetIQ</h1>
+    <p class="header-sub">
+      A focused business meeting preparation agent designed to help you plan, strategize,
+      and execute high-impact meetings with clarity and confidence.
+    </p>
+    <div class="pipeline-pills">
+      <span class="pill">🎯 Objective</span>
+      <span class="pill-arrow">→</span>
+      <span class="pill">🔍 Research</span>
+      <span class="pill-arrow">→</span>
+      <span class="pill">📊 Insights</span>
+      <span class="pill-arrow">→</span>
+      <span class="pill">🧠 Strategy</span>
+      <span class="pill-arrow">→</span>
+      <span class="pill">🗂 Agenda</span>
+      <span class="pill-arrow">→</span>
+      <span class="pill">✅ Brief</span>
+    </div>
+  </header>
+
+  <!-- ── Form ──────────────────────────────────────────────────────────── -->
+  <div id="form-section">
+
+    <!-- Meeting input card -->
+    <div class="glass-card">
+      <div class="section-label">Meeting Details</div>
+      <div class="form-grid">
+
+        <div class="field">
+          <label for="company">Company Name</label>
+          <input type="text" id="company" placeholder="e.g. Acme Corporation" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label for="objective">Meeting Objective</label>
+          <input type="text" id="objective" placeholder="e.g. Explore partnership opportunities" autocomplete="off" />
+        </div>
+
+        <div class="field span-2">
+          <label for="attendees">Attendees &amp; Roles <span style="color:var(--txt-f);font-weight:300">(one per line)</span></label>
+          <textarea id="attendees" placeholder="John Doe — CEO&#10;Jane Smith — Head of Product&#10;Alex Ray — Legal Counsel"></textarea>
+        </div>
+
+        <div class="field span-2">
+          <label for="duration">Meeting Duration</label>
+          <div class="duration-row">
+            <input type="range" id="duration" min="15" max="180" step="15" value="60" />
+            <div class="duration-badge" id="duration-label">60 min</div>
+          </div>
+        </div>
+
+        <div class="field span-2">
+          <label for="focus">Focus Areas &amp; Concerns</label>
+          <input type="text" id="focus" placeholder="e.g. Budget constraints, Q4 timeline, technical feasibility" autocomplete="off" />
+        </div>
+
+      </div>
+
+      <button class="btn-submit" id="submit-btn" onclick="runAgent()">
+        ⚡ &nbsp;Prepare My Meeting
+      </button>
+
+      <div id="error-toast">
+        <span style="font-size:16px">⚠</span>
+        <span id="error-msg">Something went wrong. Please try again.</span>
+      </div>
+    </div>
+
+    <!-- ── Search Links panel (always visible in form section) ──────────── -->
+    <div class="search-panel">
+      <div class="section-label">🔗 Quick Link Research</div>
+      <p style="color:var(--txt-m);font-size:13px;margin-bottom:18px;line-height:1.6;">
+        Use the standalone search agent to instantly fetch relevant links and references
+        for any topic — company, industry, technology, or competitor.
+      </p>
+      <div class="search-row">
+        <div class="field">
+          <label for="search-query">Search Query</label>
+          <input
+            type="text"
+            id="search-query"
+            placeholder="e.g. OpenAI latest funding round, EV battery supply chain 2024…"
+            autocomplete="off"
+          />
+        </div>
+        <button class="btn-search" id="search-btn" onclick="runSearch()">
+          🔍 &nbsp;Search
+        </button>
+      </div>
+
+      <!-- error message -->
+      <div id="search-error">
+        <span>⚠</span>
+        <span id="search-error-msg">Search failed. Please try again.</span>
+      </div>
+
+      <!-- results panel -->
+      <div id="search-output">
+        <div class="search-result-header">
+          <div class="search-result-title">🔗 Search Results</div>
+          <div class="search-elapsed">Completed in <span id="search-elapsed-val">—</span>s &nbsp;·&nbsp; Model: gemini-2.0-flash-lite</div>
+        </div>
+        <div class="search-body" id="search-body"></div>
+      </div>
+    </div>
+
+  </div><!-- end #form-section -->
+
+  <!-- ── Loader ─────────────────────────────────────────────────────────── -->
+  <div id="loader">
+    <div class="loader-card">
+      <div class="orbit-wrap">
+        <div class="orbit-ring orbit-ring-1"></div>
+        <div class="orbit-ring orbit-ring-2"></div>
+        <div class="orbit-ring orbit-ring-3"></div>
+        <div class="orbit-center"></div>
+      </div>
+      <div class="loader-title">MeetIQ is preparing your meeting…</div>
+      <div class="loader-sub" id="loader-sub-text">Understanding your meeting objective…</div>
+      <div class="loader-timer">Elapsed: <span id="elapsed-clock">0s</span></div>
+      <div class="agent-steps">
+        <div class="agent-step active" id="step-1">
+          <div class="step-icon">🧠</div>
+          <span>Understanding your meeting objective…</span>
+        </div>
+        <div class="agent-step" id="step-2">
+          <div class="step-icon">🔍</div>
+          <span>Researching company and context…</span>
+        </div>
+        <div class="agent-step" id="step-3">
+          <div class="step-icon">📊</div>
+          <span>Analyzing market insights…</span>
+        </div>
+        <div class="agent-step" id="step-4">
+          <div class="step-icon">🗺️</div>
+          <span>Building strategy and talking points…</span>
+        </div>
+        <div class="agent-step" id="step-5">
+          <div class="step-icon">📋</div>
+          <span>Structuring your meeting agenda…</span>
+        </div>
+        <div class="agent-step" id="step-6">
+          <div class="step-icon">✨</div>
+          <span>Finalizing your executive brief…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Result ─────────────────────────────────────────────────────────── -->
+  <div id="result-section">
+
+    <!-- Decision + Memory meta row -->
+    <div class="meta-row">
+
+      <!-- Decision card -->
+      <div class="meta-card">
+        <div class="meta-card-title blue">🧠 Decision Agent Output</div>
+        <div class="decision-rows">
+          <div class="decision-row">
+            <span class="decision-row-label">Web Search</span>
+            <span class="decision-badge" id="badge-search">—</span>
+          </div>
+          <div class="decision-row">
+            <span class="decision-row-label">Search Mode</span>
+            <span class="decision-badge badge-cyan" id="badge-search-mode">—</span>
+          </div>
+          <div class="decision-row">
+            <span class="decision-row-label">Memory Injection</span>
+            <span class="decision-badge" id="badge-memory-flag">—</span>
+          </div>
+          <div class="decision-row">
+            <span class="decision-row-label">Priority Focus</span>
+            <span class="decision-badge badge-purple" id="badge-priority">—</span>
+          </div>
+          <div class="decision-row">
+            <span class="decision-row-label">Brief Depth</span>
+            <span class="decision-badge badge-yellow" id="badge-depth">—</span>
+          </div>
+        </div>
+        <div class="reasoning-text" id="decision-reasoning">—</div>
+      </div>
+
+      <!-- Memory card -->
+      <div class="meta-card">
+        <div class="meta-card-title violet">🗂 Session Memory</div>
+        <div class="memory-indicator">
+          <div class="memory-icon inactive-mem" id="memory-icon">🗂</div>
+          <div class="memory-text-wrap">
+            <div class="memory-status no" id="memory-status-text">Not used</div>
+            <div class="memory-sub" id="memory-sub-text">
+              No past interactions were injected into this run.
+            </div>
+          </div>
+        </div>
+        <!-- elapsed time -->
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);">
+          <div style="font-size:11px;color:var(--txt-f);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Total Run Time</div>
+          <div id="result-elapsed" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--green);">—</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Brief card -->
+    <div class="glass-card">
+      <div class="result-header">
+        <div class="result-title">MeetIQ Brief<span>Ready</span> ✓</div>
+        <div class="result-actions">
+          <button class="btn-download" id="download-btn" onclick="downloadPDF()">⬇ &nbsp;Download PDF</button>
+          <button class="btn-reset" onclick="resetForm()">← Start Over</button>
+        </div>
+      </div>
+      <div class="result-body" id="print-area"></div>
+    </div>
+
+  </div>
+
+  <footer>
+    MeetIQ · Business Meeting Preparation Agent
+  </footer>
+</div>
+
+<!-- ── JavaScript ──────────────────────────────────────────────────────── -->
+<script>
+  /* ══════════════════════════════════════════════════════════════════════
+     MARKED GLOBAL RENDERER — all links open in a new tab
+     Without this, sites block loading inside the same window/iframe
+     and the browser shows "refused to connect".
+  ══════════════════════════════════════════════════════════════════════ */
+  (function setupMarked() {
+    const renderer = new marked.Renderer();
+    renderer.link = function(href, title, text) {
+      // href can be an object in newer marked versions
+      const url   = (typeof href === 'object' && href !== null) ? (href.href || '') : (href || '');
+      const label = (typeof href === 'object' && href !== null) ? (href.text  || text || url) : (text || url);
+      const tip   = (typeof href === 'object' && href !== null) ? (href.title || title || '') : (title || '');
+      const titleAttr = tip ? ` title="${tip}"` : '';
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer"${titleAttr}>${label}</a>`;
+    };
+    marked.setOptions({ renderer });
+  })();
+
+  /* ── Duration slider ──────────────────────────────────────────────────── */
+  const durInput = document.getElementById('duration');
+  const durLabel = document.getElementById('duration-label');
+  function updateSlider() {
+    const min = parseInt(durInput.min), max = parseInt(durInput.max), val = parseInt(durInput.value);
+    durInput.style.setProperty('--pct', ((val - min) / (max - min) * 100) + '%');
+    durLabel.textContent = val + ' min';
+  }
+  durInput.addEventListener('input', updateSlider);
+  updateSlider();
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LOADER — step cycle + live clock
+     Each agent typically runs 20–60 s, so we tick every 25 s.
+     The clock is always accurate because it tracks wall time.
+  ══════════════════════════════════════════════════════════════════════ */
+  const STEP_TEXTS = [
+    'Initialising decision engine…',
+    'Researching company context — running web searches…',
+    'Analysing industry trends & competitors…',
+    'Drafting agenda & talking points…',
+    'Composing executive brief…',
+    'Reflecting & polishing final output…',
+  ];
+  const STEP_COUNT       = 6;
+  const STEP_INTERVAL_MS = 25000;   // 25 s per step → 6 steps ≈ 2.5 min total
+
+  let stepTimer   = null;
+  let clockTimer  = null;
+  let currentStep = 0;
+  let loaderStart = 0;
+
+  function startStepCycle() {
+    currentStep = 0;
+    loaderStart = Date.now();
+    resetSteps();
+    setStep(0);
+
+    stepTimer = setInterval(() => {
+      if (currentStep < STEP_COUNT - 1) {
+        markDone(currentStep);
+        currentStep++;
+        setStep(currentStep);
+      }
+    }, STEP_INTERVAL_MS);
+
+    // Live elapsed clock
+    clockTimer = setInterval(() => {
+      const sec = Math.floor((Date.now() - loaderStart) / 1000);
+      const el  = document.getElementById('elapsed-clock');
+      if (el) el.textContent = sec < 60 ? sec + 's' : Math.floor(sec/60) + 'm ' + (sec % 60) + 's';
+    }, 1000);
+  }
+
+  function setStep(i) {
+    const el = document.getElementById(`step-${i + 1}`);
+    if (el) {
+      el.classList.add('active');
+      document.getElementById('loader-sub-text').textContent = STEP_TEXTS[i];
+    }
+  }
+  function markDone(i) {
+    const el = document.getElementById(`step-${i + 1}`);
+    if (el) {
+      el.classList.remove('active');
+      el.classList.add('done');
+      el.querySelector('.step-icon').textContent = '✓';
+    }
+  }
+  function stopStepCycle() {
+    clearInterval(stepTimer);
+    clearInterval(clockTimer);
+    for (let i = 0; i < STEP_COUNT; i++) markDone(i);
+  }
+  function resetSteps() {
+    const icons = ['🧠','🔍','📊','🗺️','📋','✨'];
+    for (let i = 0; i < STEP_COUNT; i++) {
+      const el = document.getElementById(`step-${i + 1}`);
+      el.classList.remove('active','done');
+      el.querySelector('.step-icon').textContent = icons[i];
+    }
+    const clk = document.getElementById('elapsed-clock');
+    if (clk) clk.textContent = '0s';
+  }
+
+  /* ── UI state helpers ─────────────────────────────────────────────────── */
+  function showLoader() {
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('loader').classList.add('active');
+    document.getElementById('result-section').classList.remove('active');
+    document.getElementById('error-toast').classList.remove('active');
+    startStepCycle();
+  }
+  function showResult(briefHtml, decisionText, memoryUsed, flags, elapsedSec) {
+    stopStepCycle();
+    document.getElementById('loader').classList.remove('active');
+
+    // Populate brief
+    document.getElementById('print-area').innerHTML = briefHtml;
+
+    // ── Parse + populate Decision card ───────────────────────────────────
+    const upper = decisionText.toUpperCase();
+
+    const searchYes = !/SEARCH\s*[:=]\s*NO/.test(upper) && !/SEARCH\s*[:=]\s*MINIMAL/.test(upper);
+    const memoryYes = !/MEMORY\s*[:=]\s*NO/.test(upper);
+
+    // Extract individual flags (prefer server flags if available)
+    const searchMode = (flags && flags.search_mode) || (
+      /SEARCH\s*[:=]\s*ALWAYS/.test(upper) ? 'ALWAYS' :
+      /SEARCH\s*[:=]\s*LIGHT/.test(upper)  ? 'LIGHT'  : 'MINIMAL'
+    );
+    const priority = (flags && flags.priority) || (
+      /PRIORITY\s*[:=]\s*INDUSTRY/.test(upper) ? 'Industry' :
+      /PRIORITY\s*[:=]\s*STRATEGY/.test(upper) ? 'Strategy' : 'Context'
+    );
+    const depth = (flags && flags.depth) || (
+      /DEPTH\s*[:=]\s*DEEP/.test(upper)  ? 'DEEP'  :
+      /DEPTH\s*[:=]\s*SHORT/.test(upper) ? 'SHORT' : 'NORMAL'
+    );
+
+    // Extract reasoning line
+    const reasonMatch = decisionText.match(/REASONING\s*[:=]\s*(.+)/i);
+    const reasoning   = reasonMatch ? reasonMatch[1].trim() : '—';
+
+    setDecisionBadge('badge-search',      searchYes ? 'YES' : 'NO',  searchYes ? 'badge-yes' : 'badge-no');
+    setDecisionBadge('badge-search-mode', searchMode, 'badge-cyan');
+    setDecisionBadge('badge-memory-flag', memoryUsed ? 'YES' : 'NO', memoryUsed ? 'badge-yes' : 'badge-no');
+    setDecisionBadge('badge-priority',    priority, 'badge-purple');
+    setDecisionBadge('badge-depth',       depth,    'badge-yellow');
+    document.getElementById('decision-reasoning').textContent = reasoning;
+
+    // ── Memory card ───────────────────────────────────────────────────────
+    const memIcon = document.getElementById('memory-icon');
+    const memStat = document.getElementById('memory-status-text');
+    const memSub  = document.getElementById('memory-sub-text');
+    if (memoryUsed) {
+      memIcon.className = 'memory-icon active-mem';
+      memIcon.textContent = '✅';
+      memStat.className = 'memory-status yes';
+      memStat.textContent = 'Memory Active';
+      memSub.textContent = 'Past interaction history was injected into the agents to improve context accuracy.';
+    } else {
+      memIcon.className = 'memory-icon inactive-mem';
+      memIcon.textContent = '🗂';
+      memStat.className = 'memory-status no';
+      memStat.textContent = 'Not used';
+      memSub.textContent = 'No relevant past interactions were available or applicable for this run.';
+    }
+
+    // ── Elapsed time ──────────────────────────────────────────────────────
+    if (elapsedSec !== undefined) {
+      const mins = Math.floor(elapsedSec / 60);
+      const secs = Math.round(elapsedSec % 60);
+      document.getElementById('result-elapsed').textContent =
+        mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    }
+
+    document.getElementById('result-section').classList.add('active');
+    document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function setDecisionBadge(id, label, cls) {
+    const el = document.getElementById(id);
+    el.textContent = label;
+    el.className = 'decision-badge ' + cls;
+  }
+  function showForm() {
+    document.getElementById('form-section').style.display = 'block';
+    document.getElementById('loader').classList.remove('active');
+    document.getElementById('result-section').classList.remove('active');
+    document.getElementById('submit-btn').disabled = false;
+  }
+  function showError(msg) {
+    stopStepCycle();
+    document.getElementById('loader').classList.remove('active');
+    document.getElementById('form-section').style.display = 'block';
+    document.getElementById('error-toast').classList.add('active');
+    document.getElementById('error-msg').textContent = msg;
+    document.getElementById('submit-btn').disabled = false;
+  }
+
+  /* ── Main agent fetch ─────────────────────────────────────────────────── */
+  async function runAgent() {
+    const company   = document.getElementById('company').value.trim();
+    const objective = document.getElementById('objective').value.trim();
+    const attendees = document.getElementById('attendees').value.trim();
+    const duration  = parseInt(document.getElementById('duration').value);
+    const focus     = document.getElementById('focus').value.trim();
+
+    if (!company || !objective || !attendees || !focus) {
+      document.getElementById('error-toast').classList.add('active');
+      document.getElementById('error-msg').textContent =
+        'Please fill in all fields before preparing your meeting.';
+      return;
+    }
+
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('error-toast').classList.remove('active');
+    showLoader();
+
+    try {
+      const response = await fetch('/run-agent', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_name:      company,
+          meeting_objective: objective,
+          attendees:         attendees,
+          meeting_duration:  duration,
+          focus_areas:       focus,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+
+      const briefHtml    = marked.parse(data.result   || '');
+      const decisionText = data.decision               || '';
+      const memoryUsed   = data.memory_used            === true;
+      const flags        = data.flags                  || {};
+      const elapsedSec   = data.elapsed_sec;
+
+      showResult(briefHtml, decisionText, memoryUsed, flags, elapsedSec);
+    } catch (err) {
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        showError('Could not reach the server. Make sure the app is running.');
+      } else {
+        showError(err.message || 'Unexpected error. Please try again.');
+      }
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     STANDALONE SEARCH LINKS  —  calls /search-links and renders results
+  ══════════════════════════════════════════════════════════════════════ */
+  async function runSearch() {
+    const query = document.getElementById('search-query').value.trim();
+    if (!query) {
+      document.getElementById('search-error').classList.add('active');
+      document.getElementById('search-error-msg').textContent = 'Please enter a search query.';
+      return;
+    }
+
+    const btn = document.getElementById('search-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Searching…';
+
+    document.getElementById('search-error').classList.remove('active');
+    document.getElementById('search-output').classList.remove('active');
+
+    try {
+      const response = await fetch('/search-links', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || `Server error ${response.status}`);
+
+      // Render markdown result into the search body
+      const html = marked.parse(data.links || '_No results returned._');
+      document.getElementById('search-body').innerHTML = html;
+      document.getElementById('search-elapsed-val').textContent =
+        data.elapsed_sec !== undefined ? data.elapsed_sec : '—';
+
+      document.getElementById('search-output').classList.add('active');
+    } catch (err) {
+      document.getElementById('search-error').classList.add('active');
+      document.getElementById('search-error-msg').textContent =
+        err.message || 'Search failed. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🔍 &nbsp;Search';
+    }
+  }
+
+  /* ── PDF download ─────────────────────────────────────────────────────── */
+  function downloadPDF() {
+    const sourceEl    = document.getElementById('print-area');
+    const companyName = document.getElementById('company').value.trim() || 'Meeting';
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = [
+      'position:fixed','top:-9999px','left:-9999px',
+      'width:800px','padding:40px 48px',
+      'background:#ffffff','color:#1a1a2e',
+      'font-family:Georgia,serif','font-size:13pt','line-height:1.75',
+      'z-index:-1',
+    ].join(';');
+    wrapper.innerHTML = `
+      <style>
+        .pdf-clone *          { box-sizing:border-box; }
+        .pdf-clone            { color:#1a1a2e !important; background:#fff !important; }
+        .pdf-clone h1         { font-size:22pt; font-weight:800; color:#0f172a !important;
+                                border-bottom:2px solid #334155; padding-bottom:10px; margin:0 0 18px; }
+        .pdf-clone h2         { font-size:15pt; font-weight:700; color:#1e3a5f !important; margin:24px 0 10px; }
+        .pdf-clone h3         { font-size:12pt; font-weight:700; color:#1e3a5f !important; margin:18px 0 8px; }
+        .pdf-clone p          { color:#1a1a2e !important; margin-bottom:12px; }
+        .pdf-clone ul, .pdf-clone ol { padding-left:22px; margin-bottom:12px; }
+        .pdf-clone li         { color:#1a1a2e !important; margin-bottom:5px; }
+        .pdf-clone strong     { color:#0f172a !important; font-weight:700; }
+        .pdf-clone em         { color:#334155 !important; }
+        .pdf-clone code       { background:#f1f5f9 !important; color:#0369a1 !important;
+                                border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:10pt; }
+        .pdf-clone blockquote { border-left:3px solid #3b82f6 !important; background:#f0f7ff !important;
+                                color:#334155 !important; padding:10px 16px; margin:14px 0; border-radius:0 6px 6px 0; }
+        .pdf-clone hr         { border:none; border-top:1px solid #cbd5e1; margin:20px 0; }
+        .pdf-clone *          { -webkit-text-fill-color:initial !important; text-shadow:none !important; }
+      </style>
+      <div class="pdf-clone">${sourceEl.innerHTML}</div>`;
+    document.body.appendChild(wrapper);
+    const clone = wrapper.querySelector('.pdf-clone');
+    const btn   = document.getElementById('download-btn');
+    btn.disabled  = true;
+    btn.textContent = '⏳ Generating…';
+    html2pdf()
+      .set({
+        margin:      [0.6,0.6,0.6,0.6],
+        filename:    `${companyName}_Executive_Brief.pdf`,
+        image:       { type:'jpeg', quality:0.98 },
+        html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, scrollY:0 },
+        jsPDF:       { unit:'in', format:'letter', orientation:'portrait' },
+      })
+      .from(clone)
+      .save()
+      .finally(() => {
+        document.body.removeChild(wrapper);
+        btn.disabled = false;
+        btn.innerHTML = '⬇ &nbsp;Download PDF';
+      });
+  }
+
+  /* ── Reset ────────────────────────────────────────────────────────────── */
+  function resetForm() {
+    document.getElementById('print-area').innerHTML = '';
+    showForm();
+  }
+
+  /* ── Enter key shortcuts ──────────────────────────────────────────────── */
+  ['company','objective','focus'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') runAgent();
+    });
+  });
+  document.getElementById('search-query').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runSearch();
+  });
+</script>
+
+</body>
+</html>
