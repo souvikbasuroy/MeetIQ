@@ -1,7 +1,5 @@
 # 🚀 MeetIQ — AI Meeting Intelligence Agent
-
-> An advanced multi-agent AI system that transforms meeting preparation into a **2-minute, data-driven process**.
-
+An advanced multi-agent AI system that transforms meeting preparation into a fast, structured, and data-driven process.
 ---
 
 ## 🌐 Live Demo
