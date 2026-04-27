@@ -114,19 +114,19 @@ The **Decision Agent** determines:
 
 ## 🚀 System Flow
 User Input
-↓
+→ 
 🧠 Decision Agent
-↓
+→ 
 🔍 Context Agent (Search Enabled)
-↓
+→ 
 📊 Industry Agent (Search Enabled)
-↓
+→ 
 🗺 Strategy Agent
-↓
+→ 
 📋 Brief Agent
-↓
+→ 
 ✨ Reflection Agent
-↓
+→ 
 📄 Final Executive Brief
 
 ---
