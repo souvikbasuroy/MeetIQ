@@ -10,7 +10,7 @@ https://huggingface.co/spaces/Souvikbasur/MeetIQ
 > ⚠️ Note: MeetIQ may show errors if Google Gemini or Serper API rate limits are exceeded. Wait for reset or upgrade API quota.
 ---
 
-## 🎥 Demo Video
+## 🎥 Demo Images
 
 A full walkthrough of MeetIQ’s multi-agent pipeline is available in this repository. It demonstrates how the AI agents collaborate in real-time to generate an executive brief
 
